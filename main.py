@@ -1,6 +1,18 @@
 import numpy as np
 import csv
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 
+#function for updating the plot
+def update_line(g,x,y):
+    g.set_xdata(np.append(g.get_xdata(), x))
+    g.set_ydata(np.append(g.get_ydata(), y))
+
+    ax.relim()
+    ax.autoscale_view(True,True,True)
+    plt.draw()
+    plt.pause(0.0001)
 
 #--------CLASSES--------------
 # Dense Layer
@@ -75,17 +87,37 @@ with open("diabetes.csv", 'r') as file:
         X.append([row[label.index(column)] for column in X_label])
         y.append([row[label.index(column)] for column in y_label])
 
-X_train = X[:512]
-y_train = y[:512]
+X_train = X[:256]
+y_train = y[:256]
 #converting lists in array with float casting
 X_train = np.array(X_train, dtype=np.float32)
 y_train = np.array(y_train, dtype=np.float32)
+
+X_valid = X[256:512]
+y_valid = y[256:512]
+#converting lists in array with float casting
+X_valid = np.array(X_valid, dtype=np.float32)
+y_valid = np.array(y_valid, dtype=np.float32)
 
 X_test = X[512:]
 y_test = y[512:]
 #converting lists in array with float casting
 X_test = np.array(X_test, dtype=np.float32)
 y_test = np.array(y_test, dtype=np.float32)
+
+#preparing the plot
+ax = plt.gca()
+ax.set_autoscale_on(True)
+#label of axes
+steps = np.linspace(-1,2,100)
+plt.ylabel('loss function')
+plt.xlabel('epochs')
+g_train_loss, = plt.plot([],[])
+g_train_accuracy, = plt.plot([],[])
+g_valid_loss, = plt.plot([],[])
+g_valid_accuracy, = plt.plot([],[])
+ax.legend([g_train_loss,g_train_accuracy,g_valid_loss,g_valid_accuracy], ['train_loss','train_accuracy','valid_loss','valid_accuracy'])
+
 
 
 #-----> Now all the inputs X and targets y are ready!
@@ -100,7 +132,7 @@ optimizer = Optimizer(lr=0.001)
 
 #TRAINING
 print("TRAINING:")
-for epoch in range(0,10001):
+for epoch in range(10001):
     layer1.forward(X_train)
     activation1.forward(layer1.output)
 
@@ -114,8 +146,7 @@ for epoch in range(0,10001):
 
     predictions = (activation2.output > 0.5) * 1
     accuracy = np.mean(predictions == y_train)
-    if not epoch % 100:
-        print("Epoch:",epoch,"Loss:",np.mean(binary_loss.output),"Accuracy:",accuracy)
+    loss = np.mean(binary_loss.output)
 
     #backward
     binary_loss.backward(y_train,activation2.output)
@@ -127,6 +158,23 @@ for epoch in range(0,10001):
     #ottimizzazione learning rate e pesi
     optimizer.update(layer1)
     optimizer.update(layer2)
+
+    if not epoch % 100:
+        print("Epoch:", epoch, "Loss:", loss, "Accuracy:", accuracy)
+        update_line(g_train_loss, epoch, np.mean(binary_loss.output))
+        update_line(g_train_accuracy, epoch, accuracy)
+        # Validation
+        layer1.forward(X_valid)
+        activation1.forward(layer1.output)
+        layer2.forward(activation1.output)
+        activation2.forward(layer2.output)
+        binary_loss.calculate(y_valid, activation2.output)
+
+        predictions = (activation2.output > 0.5) * 1
+        accuracy = np.mean(predictions == y_valid)
+        update_line(g_valid_loss, epoch, np.mean(binary_loss.output))
+        update_line(g_valid_accuracy, epoch, accuracy)
+        print("   Validation Loss:", np.mean(binary_loss.output), "Validation Accuracy:", accuracy)
 
 #Forward test
 print("\n")
@@ -145,6 +193,6 @@ binary_loss.calculate(y_test, activation2.output)
 predictions = (activation2.output > 0.5) * 1
 accuracy = np.mean(predictions == y_test)
 print("Loss:",np.mean(binary_loss.output),"Accuracy:",accuracy)
-print("\n")
-for i in range(0, y_test.shape[0]):
-    print("network output:", activation2.output[i],"expected output:",y_test[i])
+plt.show()
+# for i in range(0, y_test.shape[0]):
+#    print("network output:", activation2.output[i],"expected output:",y_test[i])
